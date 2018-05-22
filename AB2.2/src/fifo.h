@@ -11,5 +11,5 @@ sem_t leerePlaetze; //kontrolliert puffer zugang //overflow
 void fifo_init(void);
 void fifo_push(char);
 char fifo_pop(void);
-int fifo_getLength();
-void fifo_rauemeAuf(void);
+int fifo_getLength(void);
+void fifo_cleanUp(void);

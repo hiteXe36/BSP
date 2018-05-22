@@ -1,11 +1,9 @@
 #include "threadPool.h"
 #include <pthread.h>
 #include <stdlib.h>
-#include "taskqueue.h"
-#include <semaphore.h>
 
 #define QUEUELENGHT		50
-
+#define LOG(where)		printf("LOG__%s: \tThreads: %d/%d\t Active: %d\t Function: %s\n", pool->name, pool->runningThreads, pool->numberOfThreadsMax, pool->active, where)
 
 
 void killThreadTask(void * arg) {
@@ -16,94 +14,90 @@ void * takeTask(void* threadPool) {
 
 	threadPool_t* pool = (threadPool_t*) threadPool;
 
+	pthread_mutex_lock(&(pool->mutex));
+	pool->runningThreads++;
+	LOG("takeTask - init");
+	pthread_mutex_unlock(&(pool->mutex));
+
+	while (!(pool->active));
+
 	while (pool->running) {
-		sem_wait(pool->queueOutput);
-		pthread_mutex_lock(pool->mutex);
-		if (!pool->running)
-			pthread_exit(0);
 
 		task_t task = receiveFromTaskQueue(pool->taskqueue);
+		LOG("takeTask - took Task");
 
 		if (task.arg != 0) {
 			task.routineForTask(task.arg);
 		} else {
 			task.routineForTask(NULL);
 		}
-
-		pool->numberOfTasks--;
-		pthread_mutex_unlock(pool->mutex);
-		sem_post(pool->queueInput);
 	}
 
+	pthread_mutex_lock(&(pool->mutex));
+	pool->runningThreads--;
+	if (pool->runningThreads == 0)
+		pool->active = false;
+	LOG("takeTask - destroy");
+	pthread_mutex_unlock(&(pool->mutex));
+	pthread_exit(0);
 	return NULL;
 }
 
 void putTaskInPool(threadPool_t* pool, task_t newTask) {
 
-	sem_wait(pool->queueInput);
-	pthread_mutex_lock(pool->mutex);
-
-	sendToTaskQueue(pool->taskqueue, newTask, 0, false);
-	pool->numberOfTasks++;
-
-	pthread_mutex_unlock(pool->mutex);
-	sem_post(pool->queueOutput);
-	printf("LOG__Task put in queue, Task Nr. %d\n", pool->numberOfTasks);
+	printFehler(sendToTaskQueue(pool->taskqueue, newTask, 0, false), "Taskqueue is full!");
+	LOG("putTaskInPool");
 }
 
-threadPool_t createThreadPool(char* name, int size, pthread_mutex_t* mutex, sem_t* input, sem_t* output) {
+threadPool_t* createThreadPool(char* name, int size) {
 
-	sem_init(output, 0, 0);
-	sem_init(input, 0, QUEUELENGHT);
-	threadPool_t* newThreadPool = (threadPool_t*) (malloc(sizeof(threadPool_t)));
-	newThreadPool->NUMBER_OF_THREADS = size;
-	newThreadPool->threadArray =
-			(pthread_t*) (malloc(sizeof(pthread_t) * size));
-	newThreadPool->taskqueue = createTaskQueue(name, QUEUELENGHT);
-	newThreadPool->mutex = mutex;
-
-	newThreadPool->queueInput = input;
-	newThreadPool->queueOutput = output;
-	pthread_mutex_init(newThreadPool->mutex, NULL);
-
-	newThreadPool->running = true;
-	newThreadPool->numberOfTasks = 0;
+	threadPool_t* pool = (threadPool_t*) (malloc(sizeof(threadPool_t)));
+	pool->name = name;
+	pool->numberOfThreadsMax = size;
+	pool->threadArray = (pthread_t*) (malloc(sizeof(pthread_t) * size));
+	pool->taskqueue = createTaskQueue(name, QUEUELENGHT);
+	pthread_mutex_init(&(pool->mutex), NULL);
+	pool->running = true;
+	pool->runningThreads = 0;
 
 	for (int i = 0; i < size; i++) {
-		pthread_create(&newThreadPool->threadArray[i], NULL, takeTask,
-				(void*) newThreadPool);
-		printf("LOG__Thread Nr. %d created.__\n", i);
+		pthread_create(&pool->threadArray[i], NULL, takeTask, (void*) pool);
 	}
 
-	return *newThreadPool;
+	while(pool->runningThreads != pool->numberOfThreadsMax);
+
+	pool->active = true;
+	LOG("createThreadPool");
+	return pool;
 }
 
-void cancelThreadPool(char* name, threadPool_t * pool) {
-	pool->running = false;
+void cancelThreadPool(threadPool_t * pool) {
 
-	while (pool->numberOfTasks > 0) {
-		receiveFromTaskQueue(pool->taskqueue);
-		pool->numberOfTasks--;
-	}
+	pool->running = false;
 
 	task_t task;
 	task.routineForTask = &killThreadTask;
 
-	for (int i = 0; i < pool->NUMBER_OF_THREADS; i++) {
+	fifo_cleanUp();
+	cleanTaskQueue(pool->taskqueue);
+
+	for (int i = 0; i < pool->numberOfThreadsMax; i++) {
 		sendToTaskQueue(pool->taskqueue, task, 0, false);
 	}
-
-	destroyTaskQueue(name);
+	LOG("cancelThreadPool");
+	while (pool->active);
+	LOG("cancelThreadPool");
+	destroyTaskQueue(pool->name);
+	printFehler(pthread_mutex_destroy(&(pool->mutex)), "Zerstören des eines Mutex fehlgeschlagen!");
+	free(pool->threadArray);
+	free(pool);
 }
 
 void joinThreadPool(threadPool_t * pool) {
 
-	int size = pool->NUMBER_OF_THREADS;
+	int size = pool->numberOfThreadsMax;
 
 	for (int i = 0; i < size; i++) {
 		pthread_join(pool->threadArray[i], NULL);
 	}
-
-	free(pool->threadArray);
-	free(pool);
 }

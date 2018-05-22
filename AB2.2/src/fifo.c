@@ -1,85 +1,115 @@
-#include "fifo.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <pthread.h>
+#include <semaphore.h>
+#include "fifo.h"
+#include <signal.h>
+#include <errno.h>
 
-//Globale Variablen
+
+
+/*
+ * Globale Variablen
+ */
 static char puffer[PUFFER_SIZE];
 static int pufferPushZeiger;
 static int pufferPopZeiger;
-static int length;
+static int pufferLength;
 
-pthread_mutex_t mutex;
+//Mutex für den Zugriff auf den FIFO Puffer
+static pthread_mutex_t fifo_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-//Funktion zum initialisieren des FIFO-Puffers
-void fifo_init(void)
-{
-  printFehler(sem_init(&leerePlaetze, 0, PUFFER_SIZE),
-   "Fehler beim initialisieren von Semaphore leerePlaetze"); //leere plaetze mit 10 initialisieren
-  printFehler(sem_init(&beschriebenePlaetze, 0, 0),
-   "Fehler beim initialisieren von Semaphore beschriebenePlaetze");
-  int i;
-  for(i = 0; i < PUFFER_SIZE; i++)
-  {
-    puffer[i] = '_';
-  }
-  pufferPushZeiger = 0;
-  pufferPopZeiger = 0;
-  length = 0;
+static sem_t puffer_input; //Groesse 10; schuetzt overflow
+static sem_t puffer_output; //Schuetzt underflow
+
+/*
+ * Funktion zum initialisieren des Fifo Puffers
+ */
+void fifo_init(){
+	int i;
+    
+    //initialisieren der Semaphore
+    sem_init(&puffer_input, 0, PUFFER_SIZE);
+    sem_init(&puffer_output, 0, 0);
+    
+	for(i = 0; i < PUFFER_SIZE; i++)
+	{
+		puffer[i] = '_';
+	}
+	pufferPushZeiger = 0;
+	pufferPopZeiger = 0;
+	pufferLength = 0;
 }
 
-//einfuegen in der puffer
-void fifo_push(char neuerChar){
-    
-  sem_wait(&leerePlaetze); //-- Atomare Funktion: Ist das Semaphore größer als 0, reduziert sem_wait das semaphore um 1. Ansonsten wartet es.
-  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+/*
+ * Funktionen zum Pushen auf den Fifo Puffer
+ */
+void fifo_push(char c){
+
+    //Check ob der Puffer frei ist + Achtung sem_wait ist Cancelationpoint
+    sem_wait(&puffer_input); // Atomare Funktion: Ist das Semaphore größer als 0, reduziert sem_wait es um 1. Ansonsten wird blockiert. 
+    //diesen Abschnitt nicht cancelbar machen
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+    //Beginn kritischer Abschnitt
+    pthread_mutex_lock(&fifo_mutex);
+	puffer[pufferPushZeiger] = c;
+	pufferPushZeiger++;
+	if(pufferPushZeiger == PUFFER_SIZE)
+	{
+		pufferPushZeiger = 0;
+	}
+	pufferLength++;
+	pthread_mutex_unlock(&fifo_mutex);
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL); //nach die else if
+    //Info: sem_post ist kein Cancelationpoint
+    sem_post(&puffer_output); //inkrementieren des Semaphore um dem Consumer das konsumieren zu ermöglichen
+    //Achtung printf basiert auf der write() Funktion und ist ein möglicher Cancelationpoint
+    printf("FIFO: Buchstabe in den Puffer geschrieben: %c\n" , c);
+    printf("FIFO: Aktuelle Anzahl Elemente: %d\n", pufferLength);
+}
+
+/*
+ * Pop Funktion zum dekrementieren des FIFO Puffers.
+ */
+char fifo_pop(){
+    //Diesen Abschnitt nicht Cancelbar machen. 
+    sem_wait(&puffer_output);//check ob der puffer leer ist
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+    //Beginn kritischer Abschnitt
+    pthread_mutex_lock(&fifo_mutex);
+	char popChar = puffer[pufferPopZeiger];
+	puffer[pufferPopZeiger] = '_';
+	pufferPopZeiger++;
+	if(pufferPopZeiger == PUFFER_SIZE)
+	{
+		pufferPopZeiger = 0;
+	}
+	pufferLength--;
+    //Ende kritischer Abschnitt
+    pthread_mutex_unlock(&fifo_mutex);
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+    sem_post(&puffer_input); 
+    printf("FIFO: Buchstabe aus dem Puffer gelesen: %c\n" , popChar);
+    printf("FIFO: Aktuelle Anzahl Elemente: %d\n", pufferLength);
+	return popChar;
+}
+
+/**
+ * Getter für Puffergröße
+ */
+int fifo_getLength(){
+	return pufferLength;
+}
+
+/*
+ * Aufräumfunktion
+ */
+void fifo_cleanUp(void){
+    printFehler(sem_destroy(&puffer_input), "Fehler beim zerstoeren des Input-Semaphores.");
+    printFehler(sem_destroy(&puffer_output), "Fehler beim zerstoeren des Output-Semaphores.");
+    printFehler(pthread_mutex_destroy(&fifo_mutex), "Fehler beim zerstoeren des Fifo-Mutex.");
+}
+
+
  
-  pthread_mutex_lock(&mutex);
-
-  puffer[pufferPushZeiger] = neuerChar;
-  pufferPushZeiger++;
-  if(pufferPushZeiger == PUFFER_SIZE){
-    pufferPushZeiger = 0;
-  }
-  length++;
-  printf("Buchstabe in Puffer geschrieben: %c\n", neuerChar);
-  printf("Aktuelle Anzahl Elemente = %d\n\n", length);
-
-  pthread_mutex_unlock(&mutex);
-  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-  sem_post(&beschriebenePlaetze); //++ Atomare Funktion erhöht das Semaphore um 1.
-}
-
-char fifo_pop(void){
-    
-  sem_wait(&beschriebenePlaetze); //--
-  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-  
-  pthread_mutex_lock(&mutex);
-
-  char popChar = puffer[pufferPopZeiger];
-  pufferPopZeiger++;
-  if(pufferPopZeiger == PUFFER_SIZE){
-    pufferPopZeiger = 0;
-  }
-  length--;
-  
-  printf("Buchstabe aus Puffer gelesen: %c\n" , popChar);
-  printf("Aktuelle Anzahl Elemente = %d\n\n", length);
-  
-  pthread_mutex_unlock(&mutex);
-
-  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-  sem_post(&leerePlaetze); //++
-  return popChar;
-}
-
-int fifo_getLength(void){
-	return length;
-}
-
-void fifo_rauemeAuf(void)
-{
-  printFehler(sem_destroy(&leerePlaetze), "Fehler beim zerstoeren von Semaphore leerePlaetze");
-  printFehler(sem_destroy(&beschriebenePlaetze), "Fehler beim zerstoeren von Semaphore beschriebenePlaetze");
-  printFehler(pthread_mutex_destroy(&mutex), "Fehler beim zerstoeren des Mutexes");
-}

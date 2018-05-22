@@ -122,5 +122,15 @@ void destroyTaskQueue(const char * name){
    }
 }
 
+void cleanTaskQueue(mqd_t mqdes){
+	const struct timespec timeout = {0,0};
+	struct task task = {NULL, NULL};
+	int prio = 0;
+	int erg = 1;
+	while(-1 != erg){
+		erg = mq_timedreceive(mqdes, (char *) &task, MSG_SIZE, &prio, &timeout);
+	}
+}
+
 // EOF
 

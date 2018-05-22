@@ -14,10 +14,10 @@
 #include "getcharTimeout.h"
 
 char* helpText =
-		"– Tastatureingabe p oder P: Ueber diese Tastatureingabe wird zyklisch zwischen /n "
-				" den Modi “Es werden nur Grossbuchstaben erzeugt“, “Es werden nur Kleinbuchstaben /n"
-				" erzeugt“ und “Es werden keine Producer Auftraege vergeben“ umgeschaltet. /n"
-				"– Tastatureingabe c oder C: Starte / Stoppe die Vergabe von Consumer Auftraegen. /n"
+		"– Tastatureingabe p oder P: Ueber diese Tastatureingabe wird zyklisch zwischen\n"
+				" den Modi “Es werden nur Grossbuchstaben erzeugt“, “Es werden nur Kleinbuchstaben \n"
+				" erzeugt“ und “Es werden keine Producer Auftraege vergeben“ umgeschaltet. \n"
+				"– Tastatureingabe c oder C: Starte / Stoppe die Vergabe von Consumer Auftraegen. \n"
 				"– Tastatureingabe q oder Q: Termination des Systems.";
 
 pthread_t ctrlThreadID;
@@ -28,14 +28,18 @@ state_t productionState;
 bool consumerOn;
 threadPool_t* consumerPool;
 threadPool_t* producerPool;
-extern char* nameConsumer;
-extern char* nameProducer;
+char* lowLetters = "abcdefghijklmnopqrstuvwxyz";
+char* capLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+int8_t currentLetter = 0;
 
-void produce(char letter) {
-	fifo_push(letter);
+void produce(void * used) {
+	char * letters = (char*)used;
+	fifo_push(letters[currentLetter]);
+	currentLetter++;
+	currentLetter %= 25;
 }
 
-void consume(void) {
+void consume(void* notused) {
 	fifo_pop();
 }
 
@@ -44,18 +48,17 @@ void * ctrlThread(void * notused) {
 	while (1) {
 		//Productiontasks
 		task_t newTask;
+
 		switch (productionState) {
 		case (LOWERCASE):
-			newTask.arg = 'a';
+			newTask.arg = lowLetters;
 			newTask.routineForTask = &produce;
-			printf("LOG__ProducerTask created with: %c__\n", newTask.arg);
 			putTaskInPool(producerPool, newTask);
 			break;
 
 		case (UPPERCASE):
-			newTask.arg = 'A';
+			newTask.arg = capLetters;
 			newTask.routineForTask = &produce;
-			printf("LOG__ProducerTask created with: %c__\n", newTask.arg);
 			putTaskInPool(producerPool, newTask);
 			break;
 
@@ -73,7 +76,6 @@ void * ctrlThread(void * notused) {
 			task_t newTask;
 			newTask.arg = NULL;
 			newTask.routineForTask = &consume;
-			printf("LOG__ConsumerTask created.__\n");
 			putTaskInPool(consumerPool, newTask);
 		}
 
@@ -94,10 +96,10 @@ void * ctrlThread(void * notused) {
 			break;
 
 		case ('q'):
-			cancelThreadPool(nameProducer, producerPool);
-			cancelThreadPool(nameConsumer, consumerPool);
-			printf("LOG__ThreadPools are canceled__\n");
-			printf("Program was closed!\n");
+			cancelThreadPool(producerPool);
+			cancelThreadPool(consumerPool);
+			printf("Program is closing!\n");
+			fifo_cleanUp();
 			pthread_exit(0);
 			break;
 
@@ -120,4 +122,5 @@ void initCtrlThread(threadPool_t* producer, threadPool_t* consumer) {
 
 void joinCtrlThread() {
 	pthread_join(ctrlThreadID, NULL);
+	printf("LOG__Control Thread joined successfully.__\n");
 }

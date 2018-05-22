@@ -85,6 +85,8 @@ extern int sendToTaskQueue(const mqd_t mqdes, const struct task t, const unsigne
  */
 extern struct task receiveFromTaskQueue(const mqd_t mqdes);
 
+void cleanTaskQueue(mqd_t mqdes);
+
 #endif
 //EOF
 

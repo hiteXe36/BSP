@@ -34,15 +34,15 @@ int main()
 	fifo_init();
 
 	//create thread pools
-	threadPool_t consumerPool = createThreadPool(nameConsumer, 10, &consumerMutex, &consumerInputSem, &consumerOutputSem);
-	threadPool_t producerPool = createThreadPool(nameProducer, 10, &producerMutex, &producerInputSem, &producerOutputSem);
+	threadPool_t* consumerPool = createThreadPool(nameConsumer, 10);
+	threadPool_t* producerPool = createThreadPool(nameProducer, 10);
 
 	// create controllthread
-	initCtrlThread(&producerPool, &consumerPool);
+	initCtrlThread(producerPool, consumerPool);
 
 	// joins
-	joinThreadPool(&producerPool);
-	joinThreadPool(&consumerPool);
+	joinThreadPool(producerPool);
+	joinThreadPool(consumerPool);
 	joinCtrlThread();
 
 	return 0;

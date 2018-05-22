@@ -14,8 +14,8 @@
 
 
 void initCtrlThread(threadPool_t* producer, threadPool_t* consumer);
-void produce(char);
-void consume(void);
+void produce(void*);
+void consume(void*);
 void joinCtrlThread();
 
 #endif /* CONTROL_H_ */
