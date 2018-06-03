@@ -157,7 +157,7 @@ static void update_age_reset_ref(void);
  *  @param      frame Number of frame that will be used to store the page.
  *
  ****************************************************************************************/
-static void find_remove_fifo(int page, int * removedPage, int *frame);
+static void find_remove_fifo(int page, int * removedPage, int * frame);
 
 /**
  *****************************************************************************************
@@ -269,6 +269,7 @@ int main(int argc, char **argv) {
         switch(m.cmd){
 	   case CMD_PAGEFAULT:
                  allocate_page(m.value, m.g_count);
+                 pf_count++;
               break;
            case CMD_TIME_INTER_VAL:
                 if (pageRepAlgo == find_remove_aging) {
@@ -374,23 +375,51 @@ void cleanup(void) {
 }
 
 void vmem_init(void) {
+	/* Create System V shared memory */
+	key_t key;
 
-    /* Create System V shared memory */
+	key = ftok(SHMKEY, SHMPROCID);
 
-    /* We are creating the shm, so set the IPC_CREAT flag */
+	/* We are creating the shm, so set the IPC_CREAT flag */
+	shm_id = shmget(key, SHMSIZE, 0666 | IPC_CREAT);
 
-    /* Attach shared memory to vmem (virtual memory) */
+	/* attach shared memory to vmem */
+	vmem = (struct vmem_struct *) shmat(shm_id, NULL, 0);
 
     /* Fill with zeros */
     memset(vmem, 0, SHMSIZE);
+
+    for(int i = 0; i < VMEM_NPAGES; i++)
+    {
+    	vmem->pt[i].frame = VOID_IDX;
+    }
 }
 
 int find_unused_frame() {
+	int frame = VOID_IDX;
+
+	for(int i = 0; i < VMEM_NPAGES; i++)
+	{
+		if(vmem->pt[i].frame == VOID_IDX)
+			frame = i;
+	}
+
+	return frame;
 }
 
 void allocate_page(const int req_page, const int g_count) {
 
+	int freeFrame = find_unused_frame();
+
+	if(freeFrame != VOID_IDX)
+	{
+		fetchPage(req_page, freeFrame);
+	} else {
+
+	}
+
     /* Log action */
+	struct logevent le;
     le.req_pageno = req_page;
     le.replaced_page = removedPage;
     le.alloc_frame = frame;
@@ -405,7 +434,21 @@ void fetchPage(int page, int frame){
 void removePage(int page) {
 }
 
-void find_remove_fifo(int page, int * removedPage, int *frame){
+static int nextFifo;
+static void find_remove_fifo(int page, int * removedPage, int * frame){
+
+	*(frame) = vmem->pt[nextFifo].frame;
+	*(removedPage) = vmem->mainMemory[*frame];
+
+	if((vmem->pt[nextFifo].flags & PTF_DIRTY) == PTF_DIRTY)
+	{
+		removePage(*removedPage);
+	}
+
+	fetchPage(page, *frame);
+
+	nextFifo++;
+	nextFifo = nextFifo % VMEM_NPAGES;
 }
 
 static void find_remove_aging(int page, int * removedPage, int *frame){
@@ -415,6 +458,8 @@ static void update_age_reset_ref(void) {
 } 
 
 static void find_remove_clock(int page, int * removedPage, int *frame){
+
+
 }
 
 // EOF

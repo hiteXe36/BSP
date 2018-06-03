@@ -28,6 +28,7 @@ static struct vmem_struct *vmem = NULL; //!< Reference to virtual memory
  */
 
 static int g_count = 0;    //!< global acces counter as quasi-timestamp - will be increment by each memory access
+int ref_c = 0;
 #define TIME_WINDOW   20
 
 /**
@@ -40,10 +41,18 @@ static int g_count = 0;    //!< global acces counter as quasi-timestamp - will b
 static void vmem_init(void) {
 
     /* Create System V shared memory */
+	int shm_id;
+	key_t key;
 
-    /* We are only using the shm, don't set the IPC_CREAT flag */
+	key_t = ftok(SHMKEY, SHMPROCID);
 
-    /* attach shared memory to vmem */
+	/* We are only using the shm, don't set the IPC_CREAT flag */
+	shm_id = shmget(key, SHMSIZE, 0666);
+
+	/* attach shared memory to vmem */
+	vmem = (struct vmem_struct *) shmat(shm_id, NULL, 0);
+
+	setupSyncDataExchange(false);
 
 }
 
@@ -62,12 +71,72 @@ static void vmem_init(void) {
  * 
  *  @return     void
  ****************************************************************************************/
-static void vmem_put_page_into_mem(int address) {
+static void vmem_put_page_into_mem(int pageno) {
+	struct msg message = {CMD_PAGEFAULT, pageno, g_count, 0};
+
+	sendMsgToMmanager(message);
+
 }
 
 int vmem_read(int address) {
+	TEST_AND_EXIT_ERRNO(address < 0, "Got negative address!");
+
+	if(vmem == NULL) { vmem_init(); }
+
+	int pageno = address / VMEM_PAGESIZE;
+	int offset = address % VMEM_PAGESIZE;
+
+	if((vmem->pt[pageno].flags & PTF_PRESENT) == 0)
+	{
+		vmem_put_page_into_mem(pageno);
+	}
+
+	vmem->pt[pageno].flags |= PTF_REF;
+
+	int result = vmem->mainMemory[vmem->pt[pageno].frame * VMEM_PAGESIZE + offset];
+
+	g_count++;
+	if(g_count % TIME_WINDOW == 0)
+	{
+		struct msg message;
+		message->cmd = CMD_TIME_INTER_VAL;
+		message->g_count = g_count;
+
+		sendMsgToMmanager(message);
+	}
+	return result;
 }
 
 void vmem_write(int address, int data) {
+	TEST_AND_EXIT_ERRNO(address < 0, "Got negative address!");
+
+	if(vmem == NULL) { vmem_init(); }
+
+	int pageno = address / VMEM_PAGESIZE;
+	int offset = address % VMEM_PAGESIZE;
+
+	// check if the needed page is available in page table
+	if((vmem->pt[pageno].flags & PTF_PRESENT) == 0)
+	{
+		vmem_put_page_into_mem(address);
+	}
+
+	//set R flag
+	vmem->pt[pageno].flags |= PTF_REF;
+	vmem->pt[pageno].flags |= PTF_DIRTY;
+
+	//do actually write
+	vmem->mainMemory[vmem->pt[pageno].frame * VMEM_PAGESIZE + offset] = data;
+
+	//increment system clocks
+	g_count++;
+	if(g_count % TIME_WINDOW == 0)
+	{
+		struct msg message;
+		message->cmd = CMD_TIME_INTER_VAL;
+		message->g_count = g_count;
+
+		sendMsgToMmanager(message);
+	}
 }
 // EOF
