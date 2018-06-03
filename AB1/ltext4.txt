@@ -1,0 +1,3 @@
+Hallo dies is Text4 in Kombination mit Hardlinks.
+BLABLALBALBLA.
+Hardlinks geupdated. 
