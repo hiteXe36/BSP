@@ -52,6 +52,7 @@ static void vmem_init(void) {
 	/* attach shared memory to vmem */
 	vmem = (struct vmem_struct *) shmat(shm_id, NULL, 0);
 
+	/* Parameter false, da es sich bei dem Modul vmappl + vmaccess um den "Client" handelt. */
 	setupSyncDataExchange(false);
 
 }
