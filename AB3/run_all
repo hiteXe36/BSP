@@ -3,7 +3,8 @@
 # Dieses Skript fuehrt die Simulation für alle Ersetzungsalgorithmen, unterschiedliche
 # Belegungen des zu sortierenden Felds und alle Framegroessen durch
 
-seed_values="2806 225 353 540 964 1088 1205 1288 2364 2492 2601 2680 5015 5321 6748 7413 7663 8555 8897 9174 9838"
+#seed_values="2806 225 353 540 964 1088 1205 1288 2364 2492 2601 2680 5015 5321 6748 7413 7663 8555 8897 9174 9838"
+seed_values="2806"
 page_sizes="8 16 32 64"
 page_rep_algo="FIFO CLOCK AGING"
 search_algo="quicksort bubblesort"

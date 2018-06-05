@@ -41,19 +41,21 @@ int ref_c = 0;
 static void vmem_init(void) {
 
     /* Create System V shared memory */
-	int shm_id;
+
 	key_t key;
 
-	key_t = ftok(SHMKEY, SHMPROCID);
+	key = ftok(SHMKEY, SHMPROCID);
+	TEST_AND_EXIT(key > 0, (stderr, "Didnt get a valid key!"));
 
 	/* We are only using the shm, don't set the IPC_CREAT flag */
-	shm_id = shmget(key, SHMSIZE, 0666);
+	int shm_id = shmget(key, SHMSIZE, 0666);
+	TEST_AND_EXIT(shm_id > 0, (stderr, "Didnt get a valid shared memory ID!"));
 
 	/* attach shared memory to vmem */
 	vmem = (struct vmem_struct *) shmat(shm_id, NULL, 0);
 
 	/* Parameter false, da es sich bei dem Modul vmappl + vmaccess um den "Client" handelt. */
-	setupSyncDataExchange(false);
+	setupSyncDataExchange();
 
 }
 
@@ -80,7 +82,7 @@ static void vmem_put_page_into_mem(int pageno) {
 }
 
 int vmem_read(int address) {
-	TEST_AND_EXIT_ERRNO(address < 0, "Got negative address!");
+	TEST_AND_EXIT(address < 0, (stderr, "Got negative address!"));
 
 	if(vmem == NULL) { vmem_init(); }
 
@@ -100,8 +102,8 @@ int vmem_read(int address) {
 	if(g_count % TIME_WINDOW == 0)
 	{
 		struct msg message;
-		message->cmd = CMD_TIME_INTER_VAL;
-		message->g_count = g_count;
+		message.cmd = CMD_TIME_INTER_VAL;
+		message.g_count = g_count;
 
 		sendMsgToMmanager(message);
 	}
@@ -109,7 +111,7 @@ int vmem_read(int address) {
 }
 
 void vmem_write(int address, int data) {
-	TEST_AND_EXIT_ERRNO(address < 0, "Got negative address!");
+	TEST_AND_EXIT(address < 0, (stderr, "Got negative address!"));
 
 	if(vmem == NULL) { vmem_init(); }
 
@@ -134,8 +136,8 @@ void vmem_write(int address, int data) {
 	if(g_count % TIME_WINDOW == 0)
 	{
 		struct msg message;
-		message->cmd = CMD_TIME_INTER_VAL;
-		message->g_count = g_count;
+		message.cmd = CMD_TIME_INTER_VAL;
+		message.g_count = g_count;
 
 		sendMsgToMmanager(message);
 	}
