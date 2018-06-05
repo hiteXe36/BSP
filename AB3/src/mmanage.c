@@ -399,6 +399,7 @@ void dump_pt(void)
 
 void cleanup(void)
 {
+	destroySyncDataExchange();
 }
 
 void vmem_init(void)
@@ -470,6 +471,7 @@ void fetchPage(int page, int frame)
 	//set new pagetable info
 	vmem->pt[page].frame = frame;
 	vmem->pt[page].flags |= PTF_PRESENT;
+	//TODO referenced bit setzen?
 }
 
 void removePage(int page)

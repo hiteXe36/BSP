@@ -130,7 +130,7 @@ void vmem_write(int address, int data) {
 
 	//do actually write
 	vmem->mainMemory[vmem->pt[pageno].frame * VMEM_PAGESIZE + offset] = data;
-
+	//vmem->mainMemory[address] = data;
 	//increment system clocks
 	g_count++;
 	if(g_count % TIME_WINDOW == 0)
