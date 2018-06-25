@@ -1,4 +1,0 @@
-seed =   2806 page_rep_algo =    FIFO search_algo =    quicksort pagesize =    8 pagefaults         
-seed =   2806 page_rep_algo =    FIFO search_algo =   bubblesort pagesize =    8 pagefaults         
-seed =   2806 page_rep_algo =   CLOCK search_algo =    quicksort pagesize =    8 pagefaults         
-seed =   2806 page_rep_algo =   CLOCK search_algo =   bubblesort pagesize =    8 pagefaults         

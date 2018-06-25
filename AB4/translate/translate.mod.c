@@ -27,6 +27,9 @@ __attribute__((section("__versions"))) = {
 	{ 0x7485e15e, __VMLINUX_SYMBOL_STR(unregister_chrdev_region) },
 	{ 0x37a0cba, __VMLINUX_SYMBOL_STR(kfree) },
 	{ 0x4a321320, __VMLINUX_SYMBOL_STR(cdev_del) },
+	{ 0xc671e369, __VMLINUX_SYMBOL_STR(_copy_to_user) },
+	{ 0xb5419b40, __VMLINUX_SYMBOL_STR(_copy_from_user) },
+	{ 0xb70789e, __VMLINUX_SYMBOL_STR(__might_fault) },
 	{ 0x27e1a049, __VMLINUX_SYMBOL_STR(printk) },
 	{ 0xbdfb6dbb, __VMLINUX_SYMBOL_STR(__fentry__) },
 };
@@ -37,4 +40,4 @@ __attribute__((section(".modinfo"))) =
 "depends=";
 
 
-MODULE_INFO(srcversion, "584B6FFAA2DF82A12B4FB15");
+MODULE_INFO(srcversion, "A596FB878696168FF3A573A");

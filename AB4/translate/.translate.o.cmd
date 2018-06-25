@@ -794,13 +794,6 @@ deps_/home/bs/BSP/AB4/translate/translate.o := \
   /usr/src/linux-4.4.79-19/include/uapi/linux/fcntl.h \
   /usr/src/linux-4.4.79-19/arch/x86/include/uapi/asm/fcntl.h \
   /usr/src/linux-4.4.79-19/include/uapi/asm-generic/fcntl.h \
-  /usr/src/linux-4.4.79-19/include/linux/uaccess.h \
-  /usr/src/linux-4.4.79-19/arch/x86/include/asm/uaccess.h \
-    $(wildcard include/config/x86/intel/usercopy.h) \
-    $(wildcard include/config/debug/strict/user/copy/checks.h) \
-  /usr/src/linux-4.4.79-19/arch/x86/include/asm/smap.h \
-    $(wildcard include/config/x86/smap.h) \
-  /usr/src/linux-4.4.79-19/arch/x86/include/asm/uaccess_64.h \
   /usr/src/linux-4.4.79-19/include/linux/slab.h \
     $(wildcard include/config/debug/slab.h) \
     $(wildcard include/config/failslab.h) \
@@ -811,6 +804,12 @@ deps_/home/bs/BSP/AB4/translate/translate.o := \
     $(wildcard include/config/debug/kmemleak.h) \
   /usr/src/linux-4.4.79-19/include/linux/kasan.h \
   /usr/src/linux-4.4.79-19/include/linux/proc_fs.h \
+  /usr/src/linux-4.4.79-19/arch/x86/include/asm/uaccess.h \
+    $(wildcard include/config/x86/intel/usercopy.h) \
+    $(wildcard include/config/debug/strict/user/copy/checks.h) \
+  /usr/src/linux-4.4.79-19/arch/x86/include/asm/smap.h \
+    $(wildcard include/config/x86/smap.h) \
+  /usr/src/linux-4.4.79-19/arch/x86/include/asm/uaccess_64.h \
   /usr/src/linux-4.4.79-19/include/linux/cdev.h \
 
 /home/bs/BSP/AB4/translate/translate.o: $(deps_/home/bs/BSP/AB4/translate/translate.o)

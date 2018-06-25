@@ -3,7 +3,6 @@
 #include <linux/device.h>         // Header to support the kernel Driver Model
 #include <linux/kernel.h>         // Contains types, macros, functions for the kernel
 #include <linux/fs.h>             // Header for the Linux file system support
-#include <linux/uaccess.h>        // Required for the copy to user function
 #include <linux/moduleparam.h>
 #include <linux/slab.h>		
 #include <linux/errno.h>	/* error codes */
@@ -11,7 +10,6 @@
 #include <linux/proc_fs.h>
 #include <linux/fcntl.h>	/* O_ACCMODE */
 #include <linux/seq_file.h>
-
 /* #include <asm/system.h>		/\* cli(), *_flags *\/ */
 #include <asm/uaccess.h>	/* copy_*_user */
 
@@ -30,9 +28,10 @@ static int    shift = 3;
 static int    majorNumber = 0;                  ///< Stores the device number -- determined automatically
 
 struct trans_device {
-    struct cdev myChrDev;
+    struct cdev cdev;
     int    minorNumber;
     char   message[BUFFERSIZE];
+    int   message_size;
     //TODO mutex
 };
 
@@ -50,10 +49,10 @@ static ssize_t trans_write(struct file *, const char *, size_t, loff_t *);
  */
 static struct file_operations fops =
 {
-    .open = NULL,
-    .read = NULL,
-    .write = NULL,
-    .release = NULL,
+    .open = trans_open,
+    .read = trans_read,
+    .write = trans_write,
+    .release = trans_release,
 };
 
 /** @brief The LKM cleanup function
@@ -62,8 +61,8 @@ static struct file_operations fops =
  */
 static void transCharD_exit(void){
     printk(KERN_INFO "EXIT/CLEANUP FUNCTION");
-    cdev_del(&trans0->myChrDev);
-    cdev_del(&trans1->myChrDev);
+    cdev_del(&trans0->cdev);
+    cdev_del(&trans1->cdev);
     
     kfree(trans0);
     kfree(trans1);
@@ -74,17 +73,17 @@ static void transCharD_exit(void){
     printk(KERN_INFO "TransChar: Goodbye from the LKM!\n");
 }
 
-int initTransDev(struct trans_device * dev, int minorNumber)
+void initTransDev(struct trans_device * dev, int minorNumber)
 {
     int err, devno;
     //TODO: MUTEX
     dev->minorNumber = minorNumber;
     err = devno = MKDEV(majorNumber, minorNumber);
     
-    cdev_init(&dev->myChrDev, &fops);
-    dev->myChrDev.owner = THIS_MODULE;
-    dev->myChrDev.ops = &fops;
-    err = cdev_add(&dev->myChrDev, devno, 1);
+    cdev_init(&dev->cdev, &fops);
+    dev->cdev.owner = THIS_MODULE;
+    dev->cdev.ops = &fops;
+    err = cdev_add(&dev->cdev, devno, 1);
     
     /* Fail gracefully if need be */
     if (err)
@@ -131,6 +130,57 @@ static int transCharD_init(void){
 
    
    return 0;
+}
+
+int trans_open(struct inode *inode, struct file *filp)
+{
+    struct trans_device *trans_data; /* device information */
+    printk(KERN_INFO "Opened the FILE\n");
+    trans_data = container_of(inode->i_cdev, struct trans_device, cdev);
+    filp->private_data = trans_data; /* for other methods */
+
+   return 0;          /* success */
+}
+
+int trans_release(struct inode *inode, struct file *filep)
+{
+    printk(KERN_INFO "Released the FILE\n");
+    return 0;
+}
+
+ssize_t trans_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
+{
+    int error_count, res;
+    printk(KERN_INFO "Reading!\n");
+    struct trans_device *trans_data = filp->private_data;
+    
+    error_count = copy_to_user(buf, trans_data->message, trans_data->message_size);
+    printk(trans_data->message);
+    
+    if(trans_data->message_size)
+    {
+        res = count;
+        trans_data->message_size = 0;
+    }
+    else
+    {
+        
+        res = 0;
+    }
+
+    return res;
+}
+
+ssize_t trans_write(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
+{
+    printk(KERN_INFO "Writing!\n");
+    struct trans_device *trans_data = filp->private_data;
+    
+    copy_from_user(trans_data->message, buf, count);
+    trans_data->message_size = count;
+    
+    printk((trans_data->message));
+    return count;
 }
 
 

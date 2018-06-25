@@ -1,17 +1,17 @@
 
-devname=trans
-drvname=translate
+devname="trans"
+drvname="translate"
 echo ------alten entfernen
 sudo rm /dev/${devname}0
 sudo rm /dev/${devname}1
-sudo rmmod ${drvname}.ko
+sudo /sbin/rmmod ${drvname}.ko
 
 echo -------rebuilden
 make clean
 make
 
 echo -------insmod
-sudo insmod ${drvname}.ko  #translate_bufsize=50 translate_shift=6
+sudo /sbin/insmod ${drvname}.ko  #translate_bufsize=50 translate_shift=6
 
 echo -------major finden
 major=$(grep "${devname}"  /proc/devices | cut -d" " -f1)
