@@ -6,9 +6,7 @@ EXTRA_CFLAGS += -I$(LDDINC)
 ifneq ($(KERNELRELEASE),)
 # call from kernel build system
 
-scull-objs := main.o pipe.o
-
-obj-m	:= scull.o
+obj-m := translate.o
 
 else
 

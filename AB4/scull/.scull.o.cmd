@@ -1,0 +1,1 @@
+cmd_/home/bs/BSP/AB4/scull/scull.o := ld -m elf_x86_64   -r -o /home/bs/BSP/AB4/scull/scull.o /home/bs/BSP/AB4/scull/main.o /home/bs/BSP/AB4/scull/pipe.o ; scripts/mod/modpost /home/bs/BSP/AB4/scull/scull.o

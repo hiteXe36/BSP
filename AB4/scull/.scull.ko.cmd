@@ -1,0 +1,1 @@
+cmd_/home/bs/BSP/AB4/scull/scull.ko := ld -r -m elf_x86_64 -T /usr/src/linux-4.4.79-19/scripts/module-common.lds --build-id  -o /home/bs/BSP/AB4/scull/scull.ko /home/bs/BSP/AB4/scull/scull.o /home/bs/BSP/AB4/scull/scull.mod.o
